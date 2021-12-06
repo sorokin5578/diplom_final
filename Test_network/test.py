@@ -48,7 +48,7 @@ def preprocess_text(text):
 
 
 def make_network():
-    dataset = make_set('C:\\Users\\Illia\\PycharmProjects\\diplom_2\\utils\\new_dataset.csv')
+    dataset = make_set('C:\\Users\\Illia\\Documents\\Diploma_2021\\diplom_final\\utils\\new_dataset.csv')
     news = [preprocess_text(t) for t in dataset['title']]
     label = make_y_class(dataset['class'])
     news_2, x_test, y_train, y_test = train_test_split(news, label, test_size=0.1, random_state=38)

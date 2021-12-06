@@ -1,5 +1,7 @@
 import mysql.connector
 
+from utils.classes import *
+
 
 def get_connection():
     try:
@@ -8,75 +10,169 @@ def get_connection():
             port="3306",
             user="root",
             password="root",
-            database="users_stocks"
+            database="maters_diploma"
         )
         return db
     except:
-        return []
+        return None
 
 
-def add_new_user(user_id, user_name, stocks):
+def add_new_stocks(stock):
     try:
         db = get_connection()
         my_cursor = db.cursor()
-        if len(stocks) == 1:
-            my_cursor.execute("insert into user_info (id_user, name, 1_stock) "
-                              "value (%s, %s ,%s)",
-                              (user_id, user_name, stocks[0]))
-        elif len(stocks) == 2:
-            my_cursor.execute("insert into user_info (id_user, name, 1_stock, 2_stock) "
-                              "value (%s, %s ,%s, %s)",
-                              (user_id, user_name, stocks[0], stocks[1]))
-        elif len(stocks) == 3:
-            my_cursor.execute("insert into user_info (id_user, name, 1_stock, 2_stock, 3_stock) "
-                              "value (%s, %s ,%s, %s, %s)",
-                              (user_id, user_name, stocks[0], stocks[1], stocks[2]))
-        elif len(stocks) == 4:
-            my_cursor.execute("insert into user_info (id_user, name, 1_stock, 2_stock, 3_stock, 4_stock) "
-                              "value (%s, %s ,%s, %s, %s, %s)",
-                              (user_id, user_name, stocks[0], stocks[1], stocks[2], stocks[3]))
-        elif len(stocks) == 5:
-            my_cursor.execute("insert into user_info (id_user, name, 1_stock, 2_stock, 3_stock, 4_stock, 5_stock) "
-                              "value (%s, %s ,%s, %s, %s, %s, %s)",
-                              (user_id, user_name, stocks[0], stocks[1], stocks[2], stocks[3], stocks[4]))
+        my_cursor.execute("insert into stocks (ticker, name) value (%s, %s)", (stock.ticker, stock.name))
         db.commit()
         return True
-    except:
+    except Exception as e:
+        if e.args[0] == 1062:
+            return True
+        print(e)
         return False
     finally:
         db.close()
 
 
-def return_user(user_id):
+def add_stock_for_user(user_id, stock):
     try:
-        res = []
         db = get_connection()
         my_cursor = db.cursor()
-        my_cursor.execute("select * from user_info where id_user=" +str(user_id))
-        for x in my_cursor:
-            for j in x:
-                res.append(j)
-        cnt=0
-        for i in res[2:]:
-            if i == None:
-                cnt += 1
-        for j in range(1, cnt + 1):
-            res.remove(None)
-        return res
-    except:
-        return []
+        my_cursor.execute("insert into users_stocks (user_id, ticker) value (%s, %s)", (user_id, stock.ticker))
+        db.commit()
+        return True
+    except Exception as e:
+        print(e)
+        return False
     finally:
         db.close()
+
+
+def add_new_user(user_id, user_name, stocks=[]):
+    try:
+        db = get_connection()
+        my_cursor = db.cursor()
+        my_cursor.execute("insert into users (user_id, user_name) "
+                          "value (%s, %s)", (user_id, user_name))
+        for stock in stocks:
+            my_cursor.execute("insert into users_stocks (user_id, ticker) value (%s, %s)", (user_id, stock.ticker))
+        db.commit()
+        return get_user(user_id)
+    except Exception as e:
+        print(e)
+    finally:
+        db.close()
+    return None
+
+
+def get_stocks_by_user_id(user_id):
+    try:
+        db = get_connection()
+        my_cursor = db.cursor(prepared=True)
+        my_cursor.execute(
+            "select s.ticker, s.name from users_stocks as us left join stocks as s on s.ticker=us.ticker where us.user_id=%s ",
+            [str(user_id)])
+        stocks = []
+        for x in my_cursor:
+            stocks.append(Stock(x[0].upper(), x[1]))
+        return stocks
+    except Exception as e:
+        print(e)
+        pass
+    finally:
+        db.close()
+    return []
+
+
+def get_types(count):
+    try:
+        db = get_connection()
+        my_cursor = db.cursor(prepared=True)
+        my_cursor.execute(
+            "select type_name, count  from user_type where count>%s ", [str(count)])
+        types = []
+        for x in my_cursor:
+            types.append(Type(x[0], x[1]))
+        return types
+    except Exception as e:
+        print(e)
+        pass
+    finally:
+        db.close()
+    return []
+
+
+def get_user(user_id):
+    try:
+        db = get_connection()
+        my_cursor = db.cursor(prepared=True)
+        my_cursor.execute(
+            "select u.user_id, u.user_name, ut.type_name, ut.count from users as u left join user_type as ut on ut.type_name=u.type_name where user_id=%s",
+            [str(user_id)])
+        stocks = get_stocks_by_user_id(user_id)
+        for x in my_cursor:
+            user = User(x[0], x[1], x[2], x[3], stocks)
+            return user
+    except Exception as e:
+        print(e)
+        pass
+    finally:
+        db.close()
+    return None
+
+
+def edit_user_type(user_id, type_name):
+    try:
+        db = get_connection()
+        my_cursor = db.cursor()
+        my_cursor.execute(
+            "update users set type_name=%s where user_id=%s",
+            (type_name, user_id))
+        db.commit()
+        return True
+    except Exception as e:
+        print(e)
+        pass
+    finally:
+        db.close()
+    return False
 
 
 def del_user(user_id):
     try:
         db = get_connection()
-        my_cursor = db.cursor()
-        my_cursor.execute("delete from user_info where id_user=" +str(user_id))
+        my_cursor = db.cursor(prepared=True)
+        my_cursor.execute("delete from users where user_id=%s", [str(user_id)])
         db.commit()
         return True
     except:
         return False
     finally:
         db.close()
+
+
+def del_stocks_by_user_id(user_id):
+    try:
+        db = get_connection()
+        my_cursor = db.cursor(prepared=True)
+        my_cursor.execute("delete from users_stocks where user_id=%s", [str(user_id)])
+        db.commit()
+        return True
+    except:
+        return False
+    finally:
+        db.close()
+
+
+def get_max_type_count():
+    try:
+        db = get_connection()
+        my_cursor = db.cursor()
+        my_cursor.execute("select max(count) from user_type")
+        for x in my_cursor:
+            return x[0]
+    except Exception as e:
+        print(e)
+        pass
+    finally:
+        db.close()
+    return None

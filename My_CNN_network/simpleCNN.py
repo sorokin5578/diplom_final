@@ -13,9 +13,9 @@ def call_network(text):
     model.compile(optimizer='rmsprop',
                   loss='binary_crossentropy',
                   metrics=['accuracy'])
-    model_save_path = 'C:\\Users\\Illia\\PycharmProjects\\diplom_2\\utils\\best_mode_77.h5'
+    model_save_path = 'C:\\Users\\Illia\\Documents\\Diploma_2021\\diplom_final\\utils\\best_mode_77.h5'
     model.load_weights(model_save_path)
-    with open('C:\\Users\\Illia\\PycharmProjects\\diplom_2\\utils\\tokenizer.pickle', 'rb') as handle:
+    with open('C:\\Users\\Illia\\Documents\\Diploma_2021\\diplom_final\\utils\\tokenizer.pickle', 'rb') as handle:
         tokenizer = pickle.load(handle)
     new_text = [preprocess_text(t) for t in text]
     sequence = tokenizer.texts_to_sequences(new_text)

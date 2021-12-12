@@ -1,5 +1,6 @@
 import mysql.connector
 
+from stocker.stocker import Stocker
 from utils.classes import *
 
 
@@ -176,3 +177,13 @@ def get_max_type_count():
     finally:
         db.close()
     return None
+
+
+
+# microsoft = Stocker('GOOGL')
+# # # microsoft.predict_future(start_date='2021-12-10', end_date='2022-02-01')
+# res = microsoft.predict_future(days=10)
+# print(res[0])
+# print("="*10)
+# print(res[1])
+# # # print('{:.2f}'.format(None))

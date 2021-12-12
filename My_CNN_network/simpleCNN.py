@@ -1,4 +1,4 @@
-import pickle
+import pickle5 as pickle
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.python.keras.layers import Embedding, SimpleRNN, Dense
 from tensorflow.python.keras.models import Sequential

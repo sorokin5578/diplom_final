@@ -1,7 +1,7 @@
 import telebot
 from telebot import types
 import yfinance as yf
-
+from stocker.stocker import Stocker
 from DBConnector.simpleDB import *
 from My_CNN_network.simpleCNN import call_network
 from utils.Config import TOKEN
@@ -95,8 +95,24 @@ def get_info(massage):
         user_from_db = get_user(massage.chat.id)
         keyboard = types.InlineKeyboardMarkup(row_width=2)
         for stock in user_from_db.stocks:
-            keyboard.add(types.InlineKeyboardButton(stock.ticker, callback_data=stock.ticker))
+            keyboard.add(
+                types.InlineKeyboardButton(stock.ticker, callback_data='info ' + stock.ticker))
         msg = "Выберите тикер для которого вы хотите поучить информацию:"
+        bot.send_message(massage.chat.id, msg.format(user_from_db.type_name), reply_markup=keyboard)
+    except Exception as e:
+        print(e)
+        bot.send_message(massage.chat.id, "Упс, что-то пошло не так😢")
+
+
+@bot.message_handler(commands=['predict_for_60'])
+def get_info(massage):
+    try:
+        user_from_db = get_user(massage.chat.id)
+        keyboard = types.InlineKeyboardMarkup(row_width=2)
+        for stock in user_from_db.stocks:
+            keyboard.add(
+                types.InlineKeyboardButton(stock.ticker, callback_data='predict ' + stock.ticker))
+        msg = "Выберите тикер для которого вы хотите поучить прогноз на 60 дней:"
         bot.send_message(massage.chat.id, msg.format(user_from_db.type_name), reply_markup=keyboard)
     except Exception as e:
         print(e)
@@ -106,20 +122,27 @@ def get_info(massage):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
     try:
-        if call.data == 'user' or call.data == 'super':
+        key = call.data.split(' ')
+        if key[0] == 'user' or key[0] == 'super':
             edit_user_type(call.message.chat.id, call.data)
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                                   text="Поздравляю, ваш тип пользователя успешно изменен на {}".format(call.data),
                                   reply_markup=None)
-        else:
+        elif key[0] == 'info':
             bot.send_message(call.message.chat.id, "Пожалуйста, подождите немного, я ищу 🔎")
-            send_info([Stock(call.data, None)], call.message.chat.id)
+            send_info([Stock(key[1], None)], call.message.chat.id)
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                                   text="Получить информацию об акции по тикеру - /info_by_ticker",
                                   reply_markup=None)
-
-        bot.answer_callback_query(callback_query_id=call.id, show_alert=False,
-                                  text="Обработка...")
+        else:
+            bot.send_message(call.message.chat.id, "Пожалуйста, подождите немного, я считаю 🔎")
+            stocker = Stocker(key[1])
+            img = open(stocker.predict_future(days=60)[1], 'rb')
+            bot.send_message(call.message.chat.id, "Предсказание цены акции {} на ближайшие 60 дней".format(key[1]))
+            bot.send_photo(chat_id=call.message.chat.id, photo=img)
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                  text="Получить прогноз цены на 60 дней - /predict_for_60",
+                                  reply_markup=None)
 
     except Exception as e:
         print(e)
@@ -172,7 +195,7 @@ def listen_msg(massage):
 
         if len(stocks) > max_count_for_current_role - current_count:
             additional_string = ''
-            if user_from_db.type_count < get_max_type_count():
+            if max_count_for_current_role < get_max_type_count():
                 additional_string = "\nДля доступа к большему количеству акций вы можете улучшить свой тариф - /role" \
                                     "\nВаш текущий тариф: {}".format(user_from_db.type_name)
             bot.send_message(massage.chat.id, "{0.first_name}, вы пытаетесь добавить слишком много тикеров."
@@ -233,10 +256,21 @@ def send_info(stocks, user_id):
             ticker = tickers.tickers.get(stock.ticker)
             ticker_info = ticker.get_info()
             ticker_news = ticker.get_news()
-            info_stock.append("<b>🏦 Компания:</b> " + get_value_from_dict(ticker_info, "shortName"))
+            ticker_recommendation = None
+            stocker = Stocker(stock.ticker)
+            estimate_price = stocker.predict_future(days=3)[0]['estimate'].to_numpy()[0]
+            try:
+                ticker_recommendation = ticker.get_recommendations(as_dict=True)
+            except AttributeError as e:
+                pass
+            info_stock.append("<b>🏦 Компания:</b> " + str(ticker_info.get("shortName") or "-"))
             info_stock.append("Тикер: " + stock.ticker)
             info_stock.append("Ссылка: " + "https://finance.yahoo.com/quote/".format(stock.ticker))
-            info_stock.append("Последняя сделка: " + get_value_from_dict(ticker_info, "currentPrice"))
+            info_stock.append(
+                "Последняя сделка: " + str(
+                    ticker_info.get("currentPrice") or ticker_info.get("regularMarketPrice") or "-"))
+            info_stock.append("Рекомендация от Яху Финанс: " + get_last_recommendation(ticker_recommendation))
+            info_stock.append("Прогноз на завтра: " + price_to_str(estimate_price))
             if ticker_news:
                 info_stock.append("📰 Новости: ")
                 for news in ticker_news[:5]:
@@ -261,10 +295,20 @@ def get_common_stock(stocks, stocks_from_bd):
     return None
 
 
-def get_value_from_dict(dictionary, key):
-    if dictionary.get(key):
-        return str(dictionary.get(key))
+def get_last_recommendation(recommendations):
+    if recommendations:
+        for recommendation in recommendations.items():
+            if recommendation[0] == 'To Grade':
+                last_date = max(recommendation[1].keys())
+                return recommendation[1].get(last_date)
     return "-"
+
+
+def price_to_str(price):
+    try:
+        return '{:.2f}'.format(price)
+    except Exception as e:
+        return "-"
 
 
 bot.polling(none_stop=True)

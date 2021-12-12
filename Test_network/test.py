@@ -7,7 +7,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import pickle
+import pickle5 as pickle
 import re
 
 # Максимальное количество слов

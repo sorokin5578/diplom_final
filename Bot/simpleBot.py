@@ -219,7 +219,7 @@ def listen_msg(massage):
                 elif st_from_yahoo.get_info().get("longName"):
                     name = st_from_yahoo.get_info().get("longName")
                 stock_obj = Stock(ticker, name)
-                is_saved = add_new_stocks(stock_obj)
+                is_saved = add_new_stock(stock_obj)
                 if is_saved:
                     stocks_for_saving.append(stock_obj)
                 else:

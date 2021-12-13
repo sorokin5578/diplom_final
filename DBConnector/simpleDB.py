@@ -18,7 +18,7 @@ def get_connection():
         return None
 
 
-def add_new_stocks(stock):
+def add_new_stock(stock):
     try:
         db = get_connection()
         my_cursor = db.cursor()
@@ -177,13 +177,3 @@ def get_max_type_count():
     finally:
         db.close()
     return None
-
-
-
-# microsoft = Stocker('GOOGL')
-# # # microsoft.predict_future(start_date='2021-12-10', end_date='2022-02-01')
-# res = microsoft.predict_future(days=10)
-# print(res[0])
-# print("="*10)
-# print(res[1])
-# # # print('{:.2f}'.format(None))
